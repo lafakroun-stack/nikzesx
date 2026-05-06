@@ -3,10 +3,9 @@
 
 ## What changed
 
-- `index.html`
 - `index.css`
 - `index.js`
-- `README.md`
+- `index.html`
 
 ## Deploy checklist
 

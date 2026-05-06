@@ -1,3 +1,14 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Constants
+   These mirror values declared in :root {} in index.css so that behavioural
+   thresholds are defined alongside their visual counterparts.
+───────────────────────────────────────────────────────────────────────────── */
+const ANIM_STAGGER_STEP = 70;   // ms — matches --anim-stagger-step in CSS
+const SUBMIT_DELAY      = 900;  // ms — matches --submit-delay in CSS
+const NAV_SCROLL_OFFSET = 60;   // px — matches --nav-height in CSS (active-link detection)
+const NAV_SHADOW_THRESHOLD = 10; // px — scroll depth before nav shadow appears
+
+
 /* ── Scroll-triggered animations ───────────────────────────────────────────── */
 (function initAnimations() {
   const targets = document.querySelectorAll('[data-animate]');
@@ -6,15 +17,16 @@
   const observer = new IntersectionObserver(
     (entries) => {
       entries.forEach((entry) => {
-        if (entry.isIntersecting) {
-          // Stagger siblings inside the same grid parent
-          const parent = entry.target.parentElement;
-          const siblings = Array.from(parent.querySelectorAll('[data-animate]'));
-          const idx = siblings.indexOf(entry.target);
-          entry.target.style.transitionDelay = `${idx * 70}ms`;
-          entry.target.classList.add('is-visible');
-          observer.unobserve(entry.target);
-        }
+        if (!entry.isIntersecting) return;
+
+        // Stagger siblings inside the same grid parent so cards cascade in
+        const siblings = Array.from(
+          entry.target.parentElement.querySelectorAll('[data-animate]')
+        );
+        const idx = siblings.indexOf(entry.target);
+        entry.target.style.transitionDelay = `${idx * ANIM_STAGGER_STEP}ms`;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
       });
     },
     { threshold: 0.12 }
@@ -27,12 +39,12 @@
 /* ── Active nav link on scroll ─────────────────────────────────────────────── */
 (function initActiveNav() {
   const sections = document.querySelectorAll('section[id]');
-  const navLinks = document.querySelectorAll('.nav__links a[href^="#"]');
+  const navLinks  = document.querySelectorAll('.nav__links a[href^="#"]');
 
-  const setActive = () => {
+  const updateActiveLink = () => {
     let current = '';
     sections.forEach((sec) => {
-      if (window.scrollY >= sec.offsetTop - 120) {
+      if (window.scrollY >= sec.offsetTop - NAV_SCROLL_OFFSET) {
         current = sec.getAttribute('id');
       }
     });
@@ -41,8 +53,8 @@
     });
   };
 
-  window.addEventListener('scroll', setActive, { passive: true });
-  setActive();
+  window.addEventListener('scroll', updateActiveLink, { passive: true });
+  updateActiveLink(); // set correct state on page load
 })();
 
 
@@ -54,38 +66,48 @@
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
+  const resetMsg = () => { msg.className = 'cta-section__note'; };
+
+  const showError = (text, focusEl) => {
+    msg.textContent = text;
+    msg.classList.add('error');
+    if (focusEl) focusEl.focus();
+  };
+
+  const showSuccess = (text) => {
+    msg.textContent = text;
+    msg.classList.add('success');
+  };
+
   form.addEventListener('submit', (e) => {
     e.preventDefault();
-    const emailInput = document.getElementById('email');
-    const email = emailInput.value.trim();
+    const emailInput = form.querySelector('#email');
+    const submitBtn  = form.querySelector('button[type="submit"]');
+    const email      = emailInput.value.trim();
 
-    msg.className = 'cta-section__note';
+    resetMsg();
 
     if (!EMAIL_RE.test(email)) {
-      msg.textContent = 'Please enter a valid email address.';
-      msg.classList.add('error');
-      emailInput.focus();
+      showError('Please enter a valid email address.', emailInput);
       return;
     }
 
     // Simulate async submission
-    const btn = form.querySelector('button[type="submit"]');
-    btn.disabled = true;
-    btn.textContent = 'Sending…';
+    submitBtn.disabled    = true;
+    submitBtn.textContent = 'Sending\u2026';
 
     setTimeout(() => {
-      msg.textContent = 'You are on the list! We will be in touch soon.';
-      msg.classList.add('success');
-      emailInput.value = '';
-      btn.disabled = false;
-      btn.textContent = 'Get early access';
-    }, 900);
+      showSuccess('You are on the list! We will be in touch soon.');
+      emailInput.value      = '';
+      submitBtn.disabled    = false;
+      submitBtn.textContent = 'Get early access';
+    }, SUBMIT_DELAY);
   });
 })();
 
 
 /* ── Footer year ────────────────────────────────────────────────────────────── */
-(function setYear() {
+(function setFooterYear() {
   const el = document.getElementById('year');
   if (el) el.textContent = new Date().getFullYear();
 })();
@@ -96,9 +118,12 @@
   const nav = document.querySelector('.nav');
   if (!nav) return;
 
-  window.addEventListener('scroll', () => {
-    nav.style.boxShadow = window.scrollY > 10
-      ? '0 4px 24px rgba(0,0,0,0.45)'
-      : 'none';
-  }, { passive: true });
+  // Use a CSS class rather than an inline style so the shadow can be
+  // overridden or animated in index.css without fighting specificity.
+  const updateShadow = () => {
+    nav.classList.toggle('nav--scrolled', window.scrollY > NAV_SHADOW_THRESHOLD);
+  };
+
+  window.addEventListener('scroll', updateShadow, { passive: true });
+  updateShadow(); // apply correct state on load (e.g. after a browser back-nav)
 })();
